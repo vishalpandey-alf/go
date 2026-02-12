@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const {body} = require('express-validator');
 const userController = require('../controllers/user.controller');
+const authMiddleware = require('../middlewares/auth.middleware');   
+
 
 // Route to handle user registration with validation checks for fullname, email, and password fields    
 router.post('/register', [
@@ -10,5 +12,14 @@ router.post('/register', [
     body('password').isLength({min: 6}).withMessage('Password must be atleast of 6 characters'),
 ],
 userController.registerUser);
+
+router.post('/login', [
+    body('email').isEmail().withMessage('Invalid email address'),
+    body('password').exists().withMessage('Password is required'),
+],
+userController.loginUser);
+
+router.get('/profile', authMiddleware.authUser, userController.getUserProfile);
+
 
 module.exports = router;

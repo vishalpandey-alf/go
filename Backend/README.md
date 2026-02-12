@@ -143,3 +143,103 @@ fetch('/api/users/register', {
 - The password field is not returned in the response
 - JWT tokens expire after 1 hour
 - Email must be unique across the system
+
+## User Login Endpoint
+
+### Endpoint
+```
+POST /api/users/login
+```
+
+### Description
+Authenticates an existing user. Validates email and password, verifies credentials, and returns a JWT authentication token plus the user object on success.
+
+### Request
+
+#### Headers
+```
+Content-Type: application/json
+```
+
+#### Body
+```json
+{
+  "email": "string",
+  "password": "string"
+}
+```
+
+#### Field Requirements
+
+| Field | Type | Required | Validation |
+|-------|------|----------|-----------|
+| `email` | String | Yes | Valid email format, minimum 5 characters |
+| `password` | String | Yes | Minimum 6 characters |
+
+### Response
+
+#### Success Response (200 OK)
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "_id": "user_id",
+    "fullname": {
+      "firstname": "string",
+      "lastname": "string"
+    },
+    "email": "string",
+    "socketID": null
+  }
+}
+```
+
+#### Error Responses
+
+##### 400 Bad Request
+Validation error - one or more fields failed validation.
+```json
+{
+  "errors": [ /* validation errors */ ]
+}
+```
+
+##### 401 Unauthorized
+Invalid credentials (email not found or password mismatch).
+```json
+{
+  "message": "Invalid email or password"
+}
+```
+
+##### 500 Internal Server Error
+Server error during authentication.
+```json
+{
+  "message": "Internal Server Error"
+}
+```
+
+### Example Usage
+
+#### cURL
+```bash
+curl -X POST http://localhost:3000/api/users/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"john@example.com","password":"password123"}'
+```
+
+#### JavaScript/Fetch
+```javascript
+fetch('/api/users/login', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email: 'john@example.com', password: 'password123' })
+})
+.then(res => res.json())
+.then(data => console.log(data));
+```
+
+### Security Notes
+- JWT tokens expire after 1 hour and should be stored securely client-side
+- Do not log passwords; ensure transport is over HTTPS in production
