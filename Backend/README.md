@@ -243,3 +243,150 @@ fetch('/api/users/login', {
 ### Security Notes
 - JWT tokens expire after 1 hour and should be stored securely client-side
 - Do not log passwords; ensure transport is over HTTPS in production
+
+## User Profile Endpoint
+
+### Endpoint
+```
+GET /api/users/profile
+```
+
+### Description
+Retrieves the authenticated user's profile information. This is a protected endpoint that requires a valid authentication token.
+
+### Request
+
+#### Headers
+```
+Content-Type: application/json
+Authorization: Bearer <token>
+```
+
+### Response
+
+#### Success Response (200 OK)
+```json
+{
+  "user": {
+    "_id": "user_id",
+    "fullname": {
+      "firstname": "string",
+      "lastname": "string"
+    },
+    "email": "string",
+    "socketID": null
+  }
+}
+```
+
+#### Error Responses
+
+##### 401 Unauthorized
+Token is missing or invalid.
+```json
+{
+  "message": "Unauthorized"
+}
+```
+
+##### 500 Internal Server Error
+Server error during profile retrieval.
+```json
+{
+  "message": "Internal Server Error"
+}
+```
+
+### Example Usage
+
+#### cURL
+```bash
+curl -X GET http://localhost:3000/api/users/profile \
+  -H "Authorization: Bearer <token>"
+```
+
+#### JavaScript/Fetch
+```javascript
+fetch('/api/users/profile', {
+  method: 'GET',
+  headers: {
+    'Authorization': 'Bearer ' + token
+  }
+})
+.then(res => res.json())
+.then(data => console.log(data));
+```
+
+### Security Notes
+- This endpoint requires authentication; token must be valid and not expired
+- Only authenticated users can access their own profile information
+
+## User Logout Endpoint
+
+### Endpoint
+```
+GET /api/users/logout
+```
+
+### Description
+Logs out the authenticated user by invalidating their authentication token. This is a protected endpoint that requires a valid authentication token. The token is added to a blacklist to prevent further use.
+
+### Request
+
+#### Headers
+```
+Authorization: Bearer <token>
+```
+
+### Response
+
+#### Success Response (200 OK)
+```json
+{
+  "message": "Logged out successfully"
+}
+```
+
+#### Error Responses
+
+##### 401 Unauthorized
+Token is missing or invalid.
+```json
+{
+  "message": "Unauthorized"
+}
+```
+
+##### 500 Internal Server Error
+Server error during logout.
+```json
+{
+  "message": "Internal Server Error"
+}
+```
+
+### Example Usage
+
+#### cURL
+```bash
+curl -X GET http://localhost:3000/api/users/logout \
+  -H "Authorization: Bearer <token>"
+```
+
+#### JavaScript/Fetch
+```javascript
+fetch('/api/users/logout', {
+  method: 'GET',
+  headers: {
+    'Authorization': 'Bearer ' + token
+  }
+})
+.then(res => res.json())
+.then(data => console.log(data));
+```
+
+### Security Notes
+- This endpoint requires authentication; token must be valid
+- Token is added to a blacklist upon logout to invalidate it immediately
+- Client-side token should be cleared after successful logout
+- Cookies containing the token are cleared by the server

@@ -13,13 +13,16 @@ router.post('/register', [
 ],
 userController.registerUser);
 
+// Route to handle user login with validation checks for email and password fields
 router.post('/login', [
     body('email').isEmail().withMessage('Invalid email address'),
     body('password').exists().withMessage('Password is required'),
 ],
 userController.loginUser);
 
+// Protected route to get user profile, accessible only to authenticated users
 router.get('/profile', authMiddleware.authUser, userController.getUserProfile);
 
+router.get('/logout', authMiddleware.authUser, userController.logoutUser);  
 
 module.exports = router;

@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   backend:
     build: .
@@ -10,8 +8,12 @@ services:
       - .env
     depends_on:
       - mongo
-    #volumes:
-    #  - .:/app
+    # --- HOT RELOAD MAGIC STARTS HERE ---
+    volumes:
+      - .:/app/                # Syncs your code
+      - /app/node_modules/     # IMPORTANT: Prevents local node_modules from overriding container ones
+    command: npx nodemon server.js  # Runs nodemon without needing it installed globally
+
 
   mongo:
     image: mongo:6
