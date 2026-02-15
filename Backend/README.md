@@ -1,392 +1,176 @@
 # Backend API Documentation
 
-## User Registration Endpoint
+## User Endpoints
 
-### Endpoint
-```
-POST /api/users/register
-```
+### 1. Register User
+**POST** `/api/users/register`
 
-### Description
-Registers a new user in the system. Accepts user registration details, validates the input, hashes the password, and returns an authentication token upon successful registration.
-
-### Request
-
-#### Headers
-```
-Content-Type: application/json
-```
-
-#### Body
+**Request:**
 ```json
 {
-  "fullname": {
-    "firstname": "string",
-    "lastname": "string"
-  },
+  "fullname": { "firstname": "string (min 3)", "lastname": "string" },
+  "email": "string (unique, valid format)",
+  "password": "string (min 6)"
+}
+```
+
+**Responses:**
+- `201`: `{ "token": "JWT", "user": {...} }` - User created
+- `400`: Validation error or duplicate email
+- `500`: Server error
+
+**Security:** JWT expires after 1 hour. Passwords hashed with bcrypt (10 salt rounds).
+
+---
+
+### 2. Login User
+**POST** `/api/users/login`
+
+**Request:**
+```json
+{
   "email": "string",
   "password": "string"
 }
 ```
 
-#### Field Requirements
+**Responses:**
+- `200`: `{ "token": "JWT", "user": {...} }` - Login successful
+- `401`: Invalid credentials
+- `400`: Validation error
+- `500`: Server error
 
-| Field | Type | Required | Validation |
-|-------|------|----------|-----------|
-| `fullname.firstname` | String | Yes | Minimum 3 characters |
-| `fullname.lastname` | String | No | Minimum 3 characters (if provided) |
-| `email` | String | Yes | Valid email format, minimum 5 characters, must be unique |
-| `password` | String | Yes | Minimum 6 characters |
+**Cookie:** Token stored in `token` cookie
 
-### Response
+---
 
-#### Success Response (201 Created)
+### 3. Get User Profile
+**GET** `/api/users/profile` *(Protected)*
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Response:**
+- `200`: `{ "user": {...} }`
+- `401`: Missing/invalid token
+- `500`: Server error
+
+---
+
+### 4. Logout User
+**GET** `/api/users/logout` *(Protected)*
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Response:**
+- `200`: `{ "message": "Logged out successfully" }` - Token blacklisted
+- `401`: Missing/invalid token
+- `500`: Server error
+
+**Action:** Token added to blacklist, cookie cleared
+
+---
+
+## Captain Endpoints
+
+### 5. Register Captain
+**POST** `/api/captains/register`
+
+**Request:**
 ```json
 {
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user": {
-    "_id": "user_id",
-    "fullname": {
-      "firstname": "string",
-      "lastname": "string"
-    },
-    "email": "string",
-    "socketID": null
+  "fullname": { "firstname": "string (min 3)", "lastname": "string (min 3)" },
+  "email": "string (unique, valid format)",
+  "password": "string (min 6)",
+  "vehicle": {
+    "color": "string (min 3)",
+    "plate": "string (min 3)",
+    "capacity": "number (min 1)",
+    "vehicleType": "car | motorcycle | auto"
   }
 }
 ```
 
-#### Error Responses
+**Responses:**
+- `201`: `{ "token": "JWT", "captain": {...} }` - Captain created
+- `400`: Validation error, duplicate email, or invalid vehicle type
+- `500`: Server error
 
-##### 400 Bad Request
-Validation error - one or more fields failed validation.
-```json
-{
-  "errors": [
-    {
-      "msg": "FirstName must be atleast of 3 characters",
-      "param": "fullname.firstname",
-      "location": "body"
-    }
-  ]
-}
-```
+**Security:** JWT expires after 24 hours. Passwords hashed with bcrypt (10 salt rounds). Captain status starts as `inactive`.
 
-**Common validation errors:**
-- `"FirstName must be atleast of 3 characters"` - firstname is less than 3 characters
-- `"Invalid email address"` - email format is invalid
-- `"Password must be atleast of 6 characters"` - password is less than 6 characters
+---
 
-##### 500 Internal Server Error
-Server error during user creation.
-```json
-{
-  "message": "Internal Server Error"
-}
-```
+## Field Validation Rules
 
-**Possible causes:**
-- Database connection error
-- Duplicate email (email already exists in database)
-- Unexpected server error
+| Field | Type | Min/Max | Special Rules |
+|-------|------|---------|---------------|
+| firstname | String | 3 chars | Required for users & captains |
+| lastname | String | 3 chars | Optional for users; Required for captains |
+| email | String | - | Valid format, unique per type |
+| password | String | 6 chars | Hashed before storage |
+| vehicle.color | String | 3 chars | Captain only |
+| vehicle.plate | String | 3 chars | Captain only |
+| vehicle.capacity | Number | ≥ 1 | Captain only |
+| vehicleType | Enum | - | car, motorcycle, auto |
 
-### Status Codes
+---
 
-| Code | Description |
-|------|-------------|
-| `201` | User successfully registered; authentication token generated |
-| `400` | Validation error; required fields missing or invalid |
-| `500` | Internal server error; user creation failed |
+## Example Requests
 
-### Authentication
-- Upon successful registration, a JWT token is generated with a 1-hour expiration
-- Token is returned in the response and should be stored client-side for authenticated requests
-
-### Example Usage
-
-#### cURL
+**Register User:**
 ```bash
 curl -X POST http://localhost:3000/api/users/register \
   -H "Content-Type: application/json" \
-  -d '{
-    "fullname": {
-      "firstname": "John",
-      "lastname": "Doe"
-    },
-    "email": "john@example.com",
-    "password": "password123"
-  }'
+  -d '{"fullname":{"firstname":"John","lastname":"Doe"},"email":"john@example.com","password":"pass123"}'
 ```
 
-#### JavaScript/Fetch
-```javascript
-fetch('/api/users/register', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json'
-  },
-  body: JSON.stringify({
-    fullname: {
-      firstname: 'John',
-      lastname: 'Doe'
-    },
-    email: 'john@example.com',
-    password: 'password123'
-  })
-})
-.then(response => response.json())
-.then(data => console.log(data));
-```
-
-### Security Notes
-- Passwords are hashed using bcrypt with 10 salt rounds before storage
-- The password field is not returned in the response
-- JWT tokens expire after 1 hour
-- Email must be unique across the system
-
-## User Login Endpoint
-
-### Endpoint
-```
-POST /api/users/login
-```
-
-### Description
-Authenticates an existing user. Validates email and password, verifies credentials, and returns a JWT authentication token plus the user object on success.
-
-### Request
-
-#### Headers
-```
-Content-Type: application/json
-```
-
-#### Body
-```json
-{
-  "email": "string",
-  "password": "string"
-}
-```
-
-#### Field Requirements
-
-| Field | Type | Required | Validation |
-|-------|------|----------|-----------|
-| `email` | String | Yes | Valid email format, minimum 5 characters |
-| `password` | String | Yes | Minimum 6 characters |
-
-### Response
-
-#### Success Response (200 OK)
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user": {
-    "_id": "user_id",
-    "fullname": {
-      "firstname": "string",
-      "lastname": "string"
-    },
-    "email": "string",
-    "socketID": null
-  }
-}
-```
-
-#### Error Responses
-
-##### 400 Bad Request
-Validation error - one or more fields failed validation.
-```json
-{
-  "errors": [ /* validation errors */ ]
-}
-```
-
-##### 401 Unauthorized
-Invalid credentials (email not found or password mismatch).
-```json
-{
-  "message": "Invalid email or password"
-}
-```
-
-##### 500 Internal Server Error
-Server error during authentication.
-```json
-{
-  "message": "Internal Server Error"
-}
-```
-
-### Example Usage
-
-#### cURL
+**Login User:**
 ```bash
 curl -X POST http://localhost:3000/api/users/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"john@example.com","password":"password123"}'
+  -d '{"email":"john@example.com","password":"pass123"}'
 ```
 
-#### JavaScript/Fetch
-```javascript
-fetch('/api/users/login', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ email: 'john@example.com', password: 'password123' })
-})
-.then(res => res.json())
-.then(data => console.log(data));
+**Register Captain:**
+```bash
+curl -X POST http://localhost:3000/api/captains/register \
+  -H "Content-Type: application/json" \
+  -d '{"fullname":{"firstname":"Jane","lastname":"Smith"},"email":"jane@example.com","password":"pass123","vehicle":{"color":"Black","plate":"ABC123","capacity":4,"vehicleType":"car"}}'
 ```
 
-### Security Notes
-- JWT tokens expire after 1 hour and should be stored securely client-side
-- Do not log passwords; ensure transport is over HTTPS in production
-
-## User Profile Endpoint
-
-### Endpoint
-```
-GET /api/users/profile
-```
-
-### Description
-Retrieves the authenticated user's profile information. This is a protected endpoint that requires a valid authentication token.
-
-### Request
-
-#### Headers
-```
-Content-Type: application/json
-Authorization: Bearer <token>
-```
-
-### Response
-
-#### Success Response (200 OK)
-```json
-{
-  "user": {
-    "_id": "user_id",
-    "fullname": {
-      "firstname": "string",
-      "lastname": "string"
-    },
-    "email": "string",
-    "socketID": null
-  }
-}
-```
-
-#### Error Responses
-
-##### 401 Unauthorized
-Token is missing or invalid.
-```json
-{
-  "message": "Unauthorized"
-}
-```
-
-##### 500 Internal Server Error
-Server error during profile retrieval.
-```json
-{
-  "message": "Internal Server Error"
-}
-```
-
-### Example Usage
-
-#### cURL
+**Protected Request (Get Profile):**
 ```bash
 curl -X GET http://localhost:3000/api/users/profile \
-  -H "Authorization: Bearer <token>"
+  -H "Authorization: Bearer <your-token>"
 ```
 
-#### JavaScript/Fetch
-```javascript
-fetch('/api/users/profile', {
-  method: 'GET',
-  headers: {
-    'Authorization': 'Bearer ' + token
-  }
-})
-.then(res => res.json())
-.then(data => console.log(data));
-```
+---
 
-### Security Notes
-- This endpoint requires authentication; token must be valid and not expired
-- Only authenticated users can access their own profile information
+## Status Codes Reference
 
-## User Logout Endpoint
+| Code | Meaning |
+|------|---------|
+| `200` | Success (existing resource) |
+| `201` | Created (new resource) |
+| `400` | Bad Request (validation/client error) |
+| `401` | Unauthorized (missing/invalid token) |
+| `500` | Internal Server Error |
 
-### Endpoint
-```
-GET /api/users/logout
-```
+---
 
-### Description
-Logs out the authenticated user by invalidating their authentication token. This is a protected endpoint that requires a valid authentication token. The token is added to a blacklist to prevent further use.
+## Security & Best Practices
 
-### Request
-
-#### Headers
-```
-Authorization: Bearer <token>
-```
-
-### Response
-
-#### Success Response (200 OK)
-```json
-{
-  "message": "Logged out successfully"
-}
-```
-
-#### Error Responses
-
-##### 401 Unauthorized
-Token is missing or invalid.
-```json
-{
-  "message": "Unauthorized"
-}
-```
-
-##### 500 Internal Server Error
-Server error during logout.
-```json
-{
-  "message": "Internal Server Error"
-}
-```
-
-### Example Usage
-
-#### cURL
-```bash
-curl -X GET http://localhost:3000/api/users/logout \
-  -H "Authorization: Bearer <token>"
-```
-
-#### JavaScript/Fetch
-```javascript
-fetch('/api/users/logout', {
-  method: 'GET',
-  headers: {
-    'Authorization': 'Bearer ' + token
-  }
-})
-.then(res => res.json())
-.then(data => console.log(data));
-```
-
-### Security Notes
-- This endpoint requires authentication; token must be valid
-- Token is added to a blacklist upon logout to invalidate it immediately
-- Client-side token should be cleared after successful logout
-- Cookies containing the token are cleared by the server
+- **Authentication:** All protected routes require valid JWT token in `Authorization: Bearer <token>` header
+- **Password Security:** Hashed using bcrypt with 10 salt rounds; never returned in responses
+- **Token Management:** 
+  - Users: 1 hour expiration
+  - Captains: 24 hours expiration
+  - Logout: Token added to blacklist
+- **Email:** Must be unique per user/captain type
+- **HTTPS:** Use HTTPS in production for all API calls
+- **Client Storage:** Store tokens securely; clear on logout
