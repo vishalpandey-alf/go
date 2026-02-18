@@ -2,7 +2,7 @@
 
 ## User Endpoints
 
-### 1. Register User
+### 1. User Registration
 **POST** `/api/users/register`
 
 **Request:**
