@@ -1,5 +1,8 @@
 const userModel = require('../models/user.model');
 const jwt = require('jsonwebtoken');
+const blackListTokenModel = require('../models/blacklistToken.model');
+const bcrypt = require('bcrypt');
+const captainModel = require('../models/captain.model');
 
 module.exports.authUser = async (req, res, next) => {
     // 1. Safe check for token (using optional chaining)
@@ -33,4 +36,29 @@ module.exports.authUser = async (req, res, next) => {
         console.error("Auth Middleware Error:", err.message);
         return res.status(401).json({ message: "Invalid or expired token." });
     }
+}
+
+module.exports.authCaptain = async (req, res, next) => {
+    // 1. Safe check for token (using optional chaining)
+    const token = req.cookies?.token || req.headers.authorization?.split(' ')[1];       
+
+    if (!token) {
+        return res.status(401).json({ message: "Access Denied. No token provided." });
+    }
+    // Check if the token is blacklisted
+    const isBlacklisted = await blackListTokenModel.findOne({ token: token });
+    if (isBlacklisted) {
+        return res.status(401).json({ message: "Unauthorized: Logged out." });
+    }   
+
+    try {
+        // 2. Verify token
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);  
+        // 3. Find captain and exclude password for security
+        const captain = await captainModel.findById(decoded._id); 
+        req.captain = captain;
+    } catch (err) {
+        res.status(401).json({ message: "Invalid or expired token." });
+    }
+
 }
