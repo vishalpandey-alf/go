@@ -81,27 +81,251 @@ Authorization: Bearer <token>
 ### 5. Register Captain
 **POST** `/api/captains/register`
 
-**Request:**
+**Request Body:**
 ```json
 {
-  "fullname": { "firstname": "string (min 3)", "lastname": "string (min 3)" },
-  "email": "string (unique, valid format)",
-  "password": "string (min 6)",
+  "fullname": {
+    "firstname": "Jane",           // Required: String, minimum 3 characters
+    "lastname": "Smith"            // Required: String, minimum 3 characters
+  },
+  "email": "jane@example.com",     // Required: Valid email format, must be unique per captain type
+  "password": "password123",       // Required: String, minimum 6 characters, will be hashed with bcrypt
   "vehicle": {
-    "color": "string (min 3)",
-    "plate": "string (min 3)",
-    "capacity": "number (min 1)",
-    "vehicleType": "car | motorcycle | auto"
+    "color": "Black",              // Required: String, minimum 3 characters
+    "plate": "ABC123",             // Required: String, minimum 3 characters
+    "capacity": 4,                 // Required: Integer, minimum 1 passenger capacity
+    "vehicleType": "car"           // Required: Enum - must be one of: "car", "motorcycle", "auto"
   }
 }
 ```
 
-**Responses:**
-- `201`: `{ "token": "JWT", "captain": {...} }` - Captain created
-- `400`: Validation error, duplicate email, or invalid vehicle type
-- `500`: Server error
+**Success Response - 201 Created:**
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",  // JWT token valid for 24 hours
+  "captain": {
+    "_id": "507f1f77bcf86cd799439011",                    // Unique MongoDB ObjectId
+    "fullname": {
+      "firstname": "Jane",
+      "lastname": "Smith"
+    },
+    "email": "jane@example.com",
+    "status": "inactive",                                 // Default status for newly registered captains
+    "vehicle": {
+      "color": "Black",
+      "plate": "ABC123",
+      "capacity": 4,
+      "vehicleType": "car",
+      "location": {                                       // Location initially null until captain is active
+        "lat": null,
+        "lng": null
+      }
+    },
+    "socketId": null                                      // Socket.io ID (null until connected)
+  }
+}
+```
 
-**Security:** JWT expires after 24 hours. Passwords hashed with bcrypt (10 salt rounds). Captain status starts as `inactive`.
+**Error Responses:**
+- `400 Bad Request` - Validation failed:
+```json
+{
+  "errors": [
+    {
+      "msg": "FirstName must be atleast of 3 characters",
+      "param": "fullname.firstname",
+      "location": "body"
+    }
+  ]
+}
+```
+
+- `400 Bad Request` - Duplicate email:
+```json
+{
+  "message": "Captain with this email already exists"
+}
+```
+
+- `500 Server Error`:
+```json
+{
+  "message": "Internal server error"
+}
+```
+
+**Security Details:**
+- Password is hashed using bcrypt with 10 salt rounds before storage
+- Password is never returned in responses
+- JWT token expires after 24 hours
+- Email must be unique; duplicate registration attempts are rejected
+
+---
+
+### 6. Login Captain
+**POST** `/api/captains/login`
+
+**Request Body:**
+```json
+{
+  "email": "jane@example.com",     // Required: Valid email format matching registered account
+  "password": "password123"         // Required: Must match the registered password
+}
+```
+
+**Success Response - 200 OK:**
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",  // JWT token valid for 24 hours
+  "captain": {
+    "_id": "507f1f77bcf86cd799439011",
+    "fullname": {
+      "firstname": "Jane",
+      "lastname": "Smith"
+    },
+    "email": "jane@example.com",
+    "status": "inactive",
+    "vehicle": {
+      "color": "Black",
+      "plate": "ABC123",
+      "capacity": 4,
+      "vehicleType": "car",
+      "location": {
+        "lat": null,
+        "lng": null
+      }
+    },
+    "socketId": null
+  }
+}
+```
+
+**Error Responses:**
+- `401 Unauthorized` - Invalid credentials:
+```json
+{
+  "message": "Invalid email or password"
+}
+```
+
+- `400 Bad Request` - Validation failed:
+```json
+{
+  "errors": [
+    {
+      "msg": "Invalid email address",
+      "param": "email",
+      "location": "body"
+    }
+  ]
+}
+```
+
+**Cookie:** Token is stored in `token` cookie for client-side session management
+
+---
+
+### 7. Get Captain Profile
+**GET** `/api/captains/profile` *(Protected)*
+
+**Headers:**
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**Success Response - 200 OK:**
+```json
+{
+  "captain": {
+    "_id": "507f1f77bcf86cd799439011",                    // Unique captain identifier
+    "fullname": {
+      "firstname": "Jane",
+      "lastname": "Smith"
+    },
+    "email": "jane@example.com",
+    "status": "inactive",                                 // Status: "active" or "inactive"
+    "vehicle": {
+      "color": "Black",
+      "plate": "ABC123",
+      "capacity": 4,
+      "vehicleType": "car",
+      "location": {                                       // Current location (null if inactive)
+        "lat": 40.7128,
+        "lng": -74.0060
+      }
+    },
+    "socketId": "socket_123456789"                        // Current Socket.io connection ID
+  }
+}
+```
+
+**Error Responses:**
+- `401 Unauthorized` - Missing token:
+```json
+{
+  "message": "Access Denied. No token provided."
+}
+```
+
+- `401 Unauthorized` - Invalid/expired token:
+```json
+{
+  "message": "Invalid or expired token."
+}
+```
+
+- `401 Unauthorized` - Captain not found:
+```json
+{
+  "message": "User not found."
+}
+```
+
+**Requirements:**
+- Valid JWT token must be provided in Authorization header
+- Token must not be blacklisted (from logout)
+- Token must not be expired (24-hour window)
+
+---
+
+### 8. Logout Captain
+**GET** `/api/captains/logout` *(Protected)*
+
+**Headers:**
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**Success Response - 200 OK:**
+```json
+{
+  "message": "Logged out successfully"  // Token added to blacklist, session terminated
+}
+```
+
+**Error Responses:**
+- `401 Unauthorized` - Missing token:
+```json
+{
+  "message": "Access Denied. No token provided."
+}
+```
+
+- `401 Unauthorized` - Invalid/expired token:
+```json
+{
+  "message": "Invalid or expired token."
+}
+```
+
+**Actions Performed:**
+- Token is added to blacklist (cannot be reused)
+- `token` cookie is cleared from client
+- All subsequent requests with this token will be denied
+
+**Requirements:**
+- Valid JWT token must be provided in Authorization header
+- Token must be in "authorized" state (not already blacklisted)
 
 ---
 
@@ -143,7 +367,26 @@ curl -X POST http://localhost:3000/api/captains/register \
   -d '{"fullname":{"firstname":"Jane","lastname":"Smith"},"email":"jane@example.com","password":"pass123","vehicle":{"color":"Black","plate":"ABC123","capacity":4,"vehicleType":"car"}}'
 ```
 
-**Protected Request (Get Profile):**
+**Login Captain:**
+```bash
+curl -X POST http://localhost:3000/api/captains/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"jane@example.com","password":"pass123"}'
+```
+
+**Get Captain Profile (Protected):**
+```bash
+curl -X GET http://localhost:3000/api/captains/profile \
+  -H "Authorization: Bearer <your-captain-token>"
+```
+
+**Logout Captain (Protected):**
+```bash
+curl -X GET http://localhost:3000/api/captains/logout \
+  -H "Authorization: Bearer <your-captain-token>"
+```
+
+**Protected Request (Get User Profile):**
 ```bash
 curl -X GET http://localhost:3000/api/users/profile \
   -H "Authorization: Bearer <your-token>"

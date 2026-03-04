@@ -57,6 +57,7 @@ module.exports.authCaptain = async (req, res, next) => {
         // 3. Find captain and exclude password for security
         const captain = await captainModel.findById(decoded._id); 
         req.captain = captain;
+        return next();
     } catch (err) {
         res.status(401).json({ message: "Invalid or expired token." });
     }
